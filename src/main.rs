@@ -15,7 +15,7 @@ fn main() {
 
         }
         Err(e) => {
-            println!("Error, you suck bro {}", e);
+            println!("Error, Could not find any git repository: {}", e);
         }
     }
 }
