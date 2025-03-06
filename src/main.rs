@@ -29,6 +29,17 @@ fn main() {
                 main_branch.name().expect("Failed to get branch name")
             );
             println!("Master commit: {:?}", main_commit);
+
+            let mut revwalk = repository.revwalk().expect("Failed to create revwalk");
+            revwalk.push_range(&format!("{}..{}", main_commit.id(), current_commit))
+                .expect("Failed to set range");
+
+            let mut count = 0;
+            for _ in revwalk {
+                count += 1;
+            }
+
+            println!("The current branch is {} commits ahead of master.", count);
         }
         Err(e) => {
             println!("Error, Could not find any git repository: {}", e);
