@@ -42,7 +42,10 @@ fn main() -> Result<(), git2::Error> {
             let tree_id = repository.index()?.write_tree()?;
             let tree = repository.find_tree(tree_id)?;
 
-            if !args.dry {
+            println!("dry: {}", args.dry);
+
+            if args.dry == false {
+                println!("executing commit");
                 repository.commit(
                     Some("HEAD"),      // Commit to HEAD
                     &sig,              // Author
