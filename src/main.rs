@@ -1,62 +1,60 @@
 use clap::Parser;
-use git2::ResetType;
+use git2::{Commit, ResetType};
 
 fn main() -> Result<(), git2::Error> {
     let args = Args::parse();
 
+    println!("current folder: {}", &args.path);
+
     match git2::Repository::discover(args.path) {
         Ok(repository) => {
-            let head = repository.head()?.resolve()?;
-            let head_commit = head.peel_to_commit()?;
+            let main_branch = repository.find_branch(&args.main, git2::BranchType::Local)?;
+            let main_commit = main_branch.get().peel_to_commit()?;
+
+            // println!("Latest commit main branch: {}", main_commit.id());
 
             let current_branch = repository.head()?;
             let current_commit = current_branch.target().unwrap();
 
-            let main_branch = repository.find_branch(&args.main, git2::BranchType::Local)?;
-            let main_commit = main_branch.get().peel_to_commit()?;
-
-            let mut revwalk = repository.revwalk().expect("Failed to create revwalk");
-            revwalk.push_range(&format!("{}..{}", main_commit.id(), current_commit))?;
-            let commit_count = revwalk.count();
-
-            if commit_count == 0 {
-                println!("Branch is not ahead of master, nothing to squash.");
-                return Ok(());
-            }
-
-            println!("Squashing {} commits...", commit_count);
-
-            let mut revwalk = repository.revwalk()?;
-            revwalk.push(head_commit.id())?;
+            let mut revwalk = repository.revwalk().unwrap();
             revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
+            revwalk.push_range(&format!("{}..{}", main_commit.id(), current_commit)).unwrap();
 
-            let target_commit_id = revwalk
-                .nth(commit_count - 1) // Get the commit before our extra commits
-                .ok_or_else(|| git2::Error::from_str("Not enough commits to squash"))??;
+            let first_commit = revwalk.last().unwrap().unwrap(); // here the number of commit
+            let commit = repository.find_commit(first_commit)?;
 
-            let target_commit = repository.find_commit(target_commit_id)?;
-            repository.reset(target_commit.as_object(), ResetType::Soft, None)?;
+            let commit_message = commit.message();
+            println!("first commit message: {}", commit.message().unwrap());
 
-            // Create a new commit with all the staged changes
-            let sig = repository.signature()?;
-            let tree_id = repository.index()?.write_tree()?;
+            let mut revwalk2 = repository.revwalk()?;
+            // revwalk.push_head()?;
+            revwalk2.set_sorting(git2::Sort::TOPOLOGICAL)?;
+            revwalk2.push_range(&format!("{}..{}", main_commit.id(), current_commit)).unwrap();
+
+
+            let mut revwalk3 = repository.revwalk()?;
+            // revwalk.push_head()?;
+            revwalk3.set_sorting(git2::Sort::TOPOLOGICAL)?;
+            revwalk3.push_range(&format!("{}..{}", main_commit.id(), current_commit)).unwrap();
+
+            let n = revwalk3.count();
+            println!("cnt: {}", n);
+
+            let commit_id = revwalk2.flatten().nth(n - 1).ok_or_else(|| git2::Error::from_str("Niet genoeg commits"))?;
+            let commit = repository.find_commit(commit_id)?;
+
+            println!("commitId: {}", commit_id.to_string());
+
+            repository.reset(commit.as_object(), ResetType::Soft, None)?;
+
+            // **Nieuwe commit maken**
+            let sig = repository.signature()?; // Huidige gebruiker als auteur
+            let tree_id = repository.index()?.write_tree()?; // Huidige index als tree opslaan
             let tree = repository.find_tree(tree_id)?;
 
-            println!("dry: {}", args.dry);
-
-            if args.dry == false {
-                println!("executing commit");
-                repository.commit(
-                    Some("HEAD"),      // Commit to HEAD
-                    &sig,              // Author
-                    &sig,              // Committer
-                    "Squashed commit", // Commit message
-                    &tree,             // Tree
-                    &[&target_commit], // Parent commit
-                )?;
-            }
-
-            println!("Successfully squashed {} commits into one.", commit_count);
+            // // Commit maken met de nieuwe state
+            // repository.commit(Some("HEAD~2"), &sig, &sig, commit_message.unwrap(), &tree, &[&commit])?;
+            repository.commit(None, &sig, &sig, commit_message.unwrap(), &tree, &[&commit])?;
         }
         Err(e) => {
             println!("Error, Could not find any git repository: {}", e);
