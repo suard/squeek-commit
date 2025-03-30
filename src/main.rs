@@ -6,16 +6,21 @@ fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
     println!("current folder: {}", &args.path);
-    
+
     let repository = Repository::discover(args.path)?;
     let current_branch = repository.head()?;
-    
+
     println!("branch: {}", current_branch.shorthand().unwrap());
-    
+
     let number_of_commits_between = count_commits_between(&repository, &args.main, current_branch.shorthand().unwrap())?;
 
     println!("Number of commits: {}", number_of_commits_between);
 
+    let head_commit = repository.head()?.peel_to_commit()?;
+    let target_commit = get_nth_parent(&head_commit, number_of_commits_between).unwrap();
+
+    println!("target commit: {}", target_commit.id().to_string());
+    
     Ok(())
 }
 
@@ -25,7 +30,7 @@ fn count_commits_between(repo: &Repository, base_branch: &str, target_branch: &s
 
     let target_branch = repo.find_branch(target_branch, git2::BranchType::Local)?;
     let target_commit = target_branch.get().peel_to_commit()?;
-    
+
     let mut revwalk = repo.revwalk()?;
     revwalk.set_sorting(Sort::TOPOLOGICAL)?;
     revwalk.push_range(&format!("{}..{}", base_commit.id(), target_commit.id()))?;
@@ -33,6 +38,18 @@ fn count_commits_between(repo: &Repository, base_branch: &str, target_branch: &s
     let count = revwalk.count();
 
     Ok(count)
+}
+
+fn get_nth_parent<'a>(commit: &'a Commit, n: usize) -> Option<Commit<'a>> {
+    let mut current_commit = commit.clone();
+    for _ in 0..n {
+        if let Ok(parent) = current_commit.parent(0) {
+            current_commit = parent;
+        } else {
+            return None;
+        }
+    }
+    Some(current_commit)
 }
 
 
