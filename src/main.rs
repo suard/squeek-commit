@@ -1,68 +1,40 @@
 use clap::Parser;
-use git2::{Commit, ResetType};
+use git2::{Commit, Oid, Repository, ResetType, Sort};
 
-fn main() -> Result<(), git2::Error> {
+
+fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
     println!("current folder: {}", &args.path);
+    
+    let repository = Repository::discover(args.path)?;
+    let current_branch = repository.head()?;
+    
+    println!("branch: {}", current_branch.shorthand().unwrap());
+    
+    let number_of_commits_between = count_commits_between(&repository, &args.main, current_branch.shorthand().unwrap())?;
 
-    match git2::Repository::discover(args.path) {
-        Ok(repository) => {
-            let main_branch = repository.find_branch(&args.main, git2::BranchType::Local)?;
-            let main_commit = main_branch.get().peel_to_commit()?;
-
-            // println!("Latest commit main branch: {}", main_commit.id());
-
-            let current_branch = repository.head()?;
-            let current_commit = current_branch.target().unwrap();
-
-            let mut revwalk = repository.revwalk().unwrap();
-            revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
-            revwalk.push_range(&format!("{}..{}", main_commit.id(), current_commit)).unwrap();
-
-            let first_commit = revwalk.last().unwrap().unwrap(); // here the number of commit
-            let commit = repository.find_commit(first_commit)?;
-
-            let commit_message = commit.message();
-            println!("first commit message: {}", commit.message().unwrap());
-
-            let mut revwalk2 = repository.revwalk()?;
-            // revwalk.push_head()?;
-            revwalk2.set_sorting(git2::Sort::TOPOLOGICAL)?;
-            revwalk2.push_range(&format!("{}..{}", main_commit.id(), current_commit)).unwrap();
-
-
-            let mut revwalk3 = repository.revwalk()?;
-            // revwalk.push_head()?;
-            revwalk3.set_sorting(git2::Sort::TOPOLOGICAL)?;
-            revwalk3.push_range(&format!("{}..{}", main_commit.id(), current_commit)).unwrap();
-
-            let n = revwalk3.count();
-            println!("cnt: {}", n);
-
-            let commit_id = revwalk2.flatten().nth(n - 1).ok_or_else(|| git2::Error::from_str("Niet genoeg commits"))?;
-            let commit = repository.find_commit(commit_id)?;
-
-            println!("commitId: {}", commit_id.to_string());
-
-            repository.reset(commit.as_object(), ResetType::Soft, None)?;
-
-            // **Nieuwe commit maken**
-            let sig = repository.signature()?; // Huidige gebruiker als auteur
-            let tree_id = repository.index()?.write_tree()?; // Huidige index als tree opslaan
-            let tree = repository.find_tree(tree_id)?;
-
-            // // Commit maken met de nieuwe state
-            // repository.commit(Some("HEAD~2"), &sig, &sig, commit_message.unwrap(), &tree, &[&commit])?;
-            repository.commit(None, &sig, &sig, commit_message.unwrap(), &tree, &[&commit])?;
-        }
-        Err(e) => {
-            println!("Error, Could not find any git repository: {}", e);
-        }
-    }
+    println!("Number of commits: {}", number_of_commits_between);
 
     Ok(())
 }
+
+fn count_commits_between(repo: &Repository, base_branch: &str, target_branch: &str) -> Result<usize, git2::Error> {
+    let base_branch = repo.find_branch(base_branch, git2::BranchType::Local)?;
+    let base_commit = base_branch.get().peel_to_commit()?;
+
+    let target_branch = repo.find_branch(target_branch, git2::BranchType::Local)?;
+    let target_commit = target_branch.get().peel_to_commit()?;
+    
+    let mut revwalk = repo.revwalk()?;
+    revwalk.set_sorting(Sort::TOPOLOGICAL)?;
+    revwalk.push_range(&format!("{}..{}", base_commit.id(), target_commit.id()))?;
+
+    let count = revwalk.count();
+
+    Ok(count)
+}
+
 
 #[derive(Parser, Debug)]
 #[command(
