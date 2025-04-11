@@ -1,6 +1,5 @@
 use clap::Parser;
-use git2::{Commit, Oid, Repository, ResetType, Sort};
-
+use git2::{Commit, IndexAddOption, Repository, ResetType, Sort};
 
 fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
@@ -18,8 +17,28 @@ fn main() -> Result<(), anyhow::Error> {
 
     let head_commit = repository.head()?.peel_to_commit()?;
     let target_commit = get_nth_parent(&head_commit, number_of_commits_between).unwrap();
-
+    
     println!("target commit: {}", target_commit.id().to_string());
+
+    let parent_commit = get_nth_parent(&head_commit, number_of_commits_between - 1).unwrap();
+    let commit_message = parent_commit.message().unwrap();
+    
+    println!("commit message: {}", commit_message);
+    
+    repository.reset(target_commit.as_object(), ResetType::Soft, None)?;
+    
+    let mut index = repository.index()?;
+    index.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
+    index.write()?;
+    
+    let branch_ref = current_branch.name().unwrap();
+    
+    let sig = repository.signature()?;
+    let tree_id = index.write_tree()?;
+    let tree = repository.find_tree(tree_id)?;
+    repository.commit(Some(branch_ref), &sig, &sig, commit_message, &tree, &[&target_commit])?;
+    
+    println!("commit done");
     
     Ok(())
 }
