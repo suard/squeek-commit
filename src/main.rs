@@ -1,4 +1,3 @@
-use anyhow::Context;
 use clap::Parser;
 use git2::{Commit, IndexAddOption, Repository, ResetType, Sort};
 use log::{debug, info};
@@ -23,7 +22,7 @@ fn main() -> Result<(), anyhow::Error> {
     let head_commit = repository.head()?.peel_to_commit()?;
     let target_commit = get_nth_parent(&head_commit, number_of_commits_between).unwrap();
 
-    debug!("target commit: {}", target_commit.id().to_string());
+    debug!("target commit: {}", target_commit.id());
 
     let parent_commit = get_nth_parent(&head_commit, number_of_commits_between - 1).unwrap();
 
@@ -38,7 +37,7 @@ fn main() -> Result<(), anyhow::Error> {
     
     debug!("commit message: {}", commit_message);
 
-    if args.dry == false {
+    if !args.dry {
         repository.reset(target_commit.as_object(), ResetType::Soft, None)?;
 
         let mut index = repository.index()?;
