@@ -1,27 +1,32 @@
+use anyhow::Context;
 use clap::Parser;
 use git2::{Commit, IndexAddOption, Repository, ResetType, Sort};
+use log::{debug, info};
+use simple_logger::SimpleLogger;
 
 fn main() -> Result<(), anyhow::Error> {
+    SimpleLogger::new().init().expect("Could not initialize logger");
+    
     let args = Args::parse();
-
-    println!("current folder: {}", &args.path);
+    
+    debug!("current folder: {}", &args.path);
 
     let repository = Repository::discover(args.path)?;
     let current_branch = repository.head()?;
-
-    println!("branch: {:?}", current_branch.shorthand());
     
-    let number_of_commits_between = count_commits_between(&repository, &args.main, current_branch.shorthand().unwrap())?;
+    debug!("branch: {:?}", current_branch.shorthand());
 
-    println!("Number of commits: {}", number_of_commits_between);
+    let number_of_commits_between = count_commits_between(&repository, &args.main, current_branch.shorthand().unwrap())?;
+    
+    debug!("Number of commits: {}", number_of_commits_between);
 
     let head_commit = repository.head()?.peel_to_commit()?;
     let target_commit = get_nth_parent(&head_commit, number_of_commits_between).unwrap();
-    
-    println!("target commit: {}", target_commit.id().to_string());
+
+    debug!("target commit: {}", target_commit.id().to_string());
 
     let parent_commit = get_nth_parent(&head_commit, number_of_commits_between - 1).unwrap();
-    
+
     let commit_message = match args.message {
         None => {
             parent_commit.message().unwrap().to_string()
@@ -31,23 +36,23 @@ fn main() -> Result<(), anyhow::Error> {
         }
     };
     
-    println!("commit message: {}", commit_message);
-    
+    debug!("commit message: {}", commit_message);
+
     if args.dry == false {
         repository.reset(target_commit.as_object(), ResetType::Soft, None)?;
-    
+
         let mut index = repository.index()?;
         index.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
         index.write()?;
-    
+
         let branch_ref = current_branch.name().unwrap();
-    
+
         let sig = repository.signature()?;
         let tree_id = index.write_tree()?;
         let tree = repository.find_tree(tree_id)?;
         repository.commit(Some(branch_ref), &sig, &sig, &commit_message, &tree, &[&target_commit])?;
-    
-        println!("commit done");
+
+        info!("Commit successful; Squashed {} with message \"{}\"", number_of_commits_between, commit_message);
     }
     
     Ok(())
