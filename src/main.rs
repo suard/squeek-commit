@@ -25,20 +25,22 @@ fn main() -> Result<(), anyhow::Error> {
     
     println!("commit message: {}", commit_message);
     
-    repository.reset(target_commit.as_object(), ResetType::Soft, None)?;
-    
-    let mut index = repository.index()?;
-    index.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
-    index.write()?;
-    
-    let branch_ref = current_branch.name().unwrap();
-    
-    let sig = repository.signature()?;
-    let tree_id = index.write_tree()?;
-    let tree = repository.find_tree(tree_id)?;
-    repository.commit(Some(branch_ref), &sig, &sig, commit_message, &tree, &[&target_commit])?;
-    
-    println!("commit done");
+    if args.dry == false {
+        repository.reset(target_commit.as_object(), ResetType::Soft, None)?;
+
+        let mut index = repository.index()?;
+        index.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
+        index.write()?;
+
+        let branch_ref = current_branch.name().unwrap();
+
+        let sig = repository.signature()?;
+        let tree_id = index.write_tree()?;
+        let tree = repository.find_tree(tree_id)?;
+        repository.commit(Some(branch_ref), &sig, &sig, commit_message, &tree, &[&target_commit])?;
+
+        println!("commit done");
+    }
     
     Ok(())
 }
