@@ -9,8 +9,8 @@ fn main() -> Result<(), anyhow::Error> {
     let repository = Repository::discover(args.path)?;
     let current_branch = repository.head()?;
 
-    println!("branch: {}", current_branch.shorthand().unwrap());
-
+    println!("branch: {:?}", current_branch.shorthand());
+    
     let number_of_commits_between = count_commits_between(&repository, &args.main, current_branch.shorthand().unwrap())?;
 
     println!("Number of commits: {}", number_of_commits_between);
