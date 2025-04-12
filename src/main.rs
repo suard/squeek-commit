@@ -21,7 +21,6 @@ fn main() -> Result<(), anyhow::Error> {
     println!("target commit: {}", target_commit.id().to_string());
 
     let parent_commit = get_nth_parent(&head_commit, number_of_commits_between - 1).unwrap();
-    // let commit_message = ;
     
     let commit_message = match args.message {
         None => {
