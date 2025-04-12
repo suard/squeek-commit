@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use clap::Parser;
 use git2::{Commit, IndexAddOption, Repository, ResetType, Sort};
 use log::{debug, info};
@@ -8,7 +9,7 @@ fn main() -> Result<(), anyhow::Error> {
     
     let args = Args::parse();
     
-    debug!("current folder: {}", &args.path);
+    debug!("current folder: {:?}", &args.path);
 
     let repository = Repository::discover(args.path)?;
     let current_branch = repository.head()?;
@@ -98,7 +99,7 @@ struct Args {
         default_value = ".",
         help = "The path to the git repository eg /home/user/repo"
     )]
-    path: String,
+    path: PathBuf,
     #[arg(
         short,
         long,
