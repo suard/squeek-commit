@@ -1,5 +1,6 @@
 mod arguments;
 
+use anyhow::anyhow;
 use arguments::Args;
 use clap::Parser;
 use git2::{Commit, IndexAddOption, Repository, ResetType, Sort};
@@ -30,6 +31,10 @@ fn run() -> Result<(), anyhow::Error> {
 
     let number_of_commits_between =
         count_commits_between(&repository, &args.main, current_branch.shorthand().unwrap())?;
+
+    if number_of_commits_between < 1 {
+        return Err(anyhow::anyhow!("No commits found"));
+    }
 
     debug!("Number of commits: {}", number_of_commits_between);
 
