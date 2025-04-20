@@ -1,9 +1,16 @@
 #!/bin/bash
 
-mkdir -p "$HOME/bin"
+SOURCE_PATH="./target/release/squeek-commit"
+DEST_PATH="/usr/local/bin/squeek-commit"
 
-cp ./target/release/squeek-commit "$HOME/bin/"
+if [ -f "$DEST_PATH" ]; then
+    echo "⚠️ Bestand bestaat al, verwijderen: $DEST_PATH"
+    sudo rm "$DEST_PATH"
+fi
 
-chmod +x "$HOME/bin/squeek-commit"
+echo "📦 Kopiëren van $SOURCE_PATH naar $DEST_PATH..."
+sudo cp "$SOURCE_PATH" "$DEST_PATH"
 
-echo "✅ squeek-commit has been copied to ~/bin"
+sudo chmod +x "$DEST_PATH"
+
+echo "✅ squeek-commit is succesvol gekopieerd naar /usr/local/bin/"
