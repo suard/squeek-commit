@@ -3,14 +3,22 @@ mod arguments;
 use arguments::Args;
 use clap::Parser;
 use git2::{Commit, IndexAddOption, Repository, ResetType, Sort};
-use log::{debug, info};
+use log::{debug, error, info};
 use simple_logger::SimpleLogger;
 
-fn main() -> Result<(), anyhow::Error> {
+fn main() {
     SimpleLogger::new()
         .init()
         .expect("Could not initialize logger");
 
+    if let Err(e) = run() {
+        error!("{}", e);
+    }
+
+    std::process::exit(1);
+}
+
+fn run() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
     debug!("current folder: {:?}", &args.path);
