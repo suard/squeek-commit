@@ -37,7 +37,9 @@ fn run() -> Result<(), anyhow::Error> {
     debug!("Number of commits: {}", number_of_commits_between);
 
     let head_commit = repository.head()?.peel_to_commit()?;
-    let target_commit = get_nth_parent(&head_commit, number_of_commits_between).unwrap();
+
+    let target_commit = get_nth_parent(&head_commit, number_of_commits_between)
+        .ok_or_else(|| anyhow::anyhow!("Could not find target commit"))?;
 
     debug!("target commit: {}", target_commit.id());
 
